@@ -1,88 +1,105 @@
 # AWS Lambda + Pandas Layer (Docker Method) + Query Filter API
 
-## URL-https://3r5sorsh752ro7rtliweu5bmwi0qorot.lambda-url.ap-south-1.on.aws/
+Live Demo URL-https://3r5sorsh752ro7rtliweu5bmwi0qorot.lambda-url.ap-south-1.on.aws/
 
-## 1. Objective
+## What We Are Building
 
-The goal of this task was to successfully run Pandas inside AWS Lambda, which is not available by default, by building a custom layer using Docker.
-We then expose a working Lambda function through a Function URL so it behaves like an API endpoint.
-Finally, we add query parameter filtering and clean error handling.
+We are running Pandas inside AWS Lambda.
 
-The entire workflow below represents the final approach that worked reliably end-to-end.
+Here is the challenge: Pandas is tricky on AWS. If you just copy it from your Windows computer to AWS, it will crash because AWS runs on Linux. To fix this, we use Docker to create a "fake" Linux environment on your computer, build Pandas there so it works correctly, and then upload it to AWS as a "Layer."
 
-## 2. Why Docker for Lambda Layers?
+By the end of this guide, you will have a working API that can filter data based on your inputs.
 
-Lambda requires packages compiled for Amazon Linux 2, not macOS or Windows.
-Docker ensures we build Pandas and NumPy in the same environment Lambda runs in.
-This avoids import errors like:
+## Getting Your Windows Machine Ready
 
-Unable to import required dependencies: numpy
+Before we start, there are a few tools you'll need. If you already set these up, you can jump straight to the next section.
 
+1. Set up Docker Desktop You need this to build the Linux-compatible version of Pandas. Download the Docker Desktop for Windows installer and run it. Once installed, open the app and wait until you see the green "Engine Running" light.
 
-Using Docker gives a predictable and clean build every time.
+2. Install the AWS CLI This tool lets your computer talk to AWS. Download the Windows MSI installer, run it, and click through the setup.
 
-## 3. Building the Pandas Layer (Docker Method)
-Step 1 — Create a project folder
-mkdir lambda-pandas-docker
-cd lambda-pandas-docker
+3. Connect AWS to Your Computer Go to the AWS Console, click your profile name, and select Security Credentials. Create a new Access Key.
 
-Step 2 — Create requirements.txt
+Copy the Access Key ID and Secret Access Key. Then, open PowerShell on your computer and type:
+
+aws configure
+
+Paste your keys when prompted. For the region, type ap-south-1.
+
+Building the Project
+
+We need to create a special "Layer" file that contains Pandas.
+
+First, create a clean folder on your Desktop named lambda-pandas-docker. Open PowerShell and navigate to it:
+
+cd Desktop\lambda-pandas-docker
+
+Step 1: Define What We Need We need to tell Docker exactly which libraries to install. Run these commands in PowerShell to create a list:
+
 echo "pandas==2.3.3" > requirements.txt
 echo "numpy==2.2.6" >> requirements.txt
 
-Step 3 — Start Lambda-compatible Docker container
-docker run --platform linux/amd64 -it \
-  --entrypoint /bin/bash \
-  -v "$PWD":/var/task \
-  public.ecr.aws/lambda/python:3.10
+Step 2: Start the Builder Now, we fire up a temporary Linux machine inside your computer. Run this exact command:
 
-Step 4 — Install dependencies inside the container
+docker run --platform linux/amd64 -it --entrypoint /bin/bash -v ${PWD}:/var/task public.ecr.aws/lambda/python:3.10
+
+You are now "inside" the Linux machine! Your command prompt will change to look something like bash-4.2#.
+
+Step 3: Build and Zip Inside that new prompt, run these commands to install Pandas and zip it up:
+
 pip install -r requirements.txt -t python
-
-
-You should now see a python/ folder containing Pandas, NumPy, and dependencies.
-
-Step 5 — Exit the container
+zip -r pandas-layer-docker.zip python
 exit
 
-Step 6 — Zip the layer
-zip -r pandas-layer-docker.zip python
+You are now back in Windows, and you have a new file named pandas-layer-docker.zip in your folder. This is your "Layer".
 
+## Uploading to AWS
 
-This ZIP file is your working Lambda layer.
+Because this zip file is large (~60MB), we upload it to storage (S3) first, then attach it to Lambda.
 
-## 4. Upload Layer to S3
+Step 1: Upload to Storage
 
-Open S3 Console
+Go to the AWS Console and search for S3.
 
-Upload pandas-layer-docker.zip
+Open any bucket (or create a new one) and click Upload.
 
-Note the S3 URI for reference
+Drag and drop your pandas-layer-docker.zip file there and upload it.
 
-## 5. Create Lambda Layer
+Once finished, click the file name and copy the S3 URI (it looks like s3://your-bucket-name/pandas-layer-docker.zip).
 
-AWS Console → Lambda → Layers → Create layer
+Step 2: Create the Layer
 
-Name: pandas-layer-docker
+Search for Lambda in the console.
 
-Upload the ZIP file (choose “Upload a file from Amazon S3” if needed)
+Click Layers in the left menu, then Create layer.
 
-Runtime: Python 3.10
+Name it pandas-layer-docker.
 
-Create
+Select Upload a file from Amazon S3 and paste the URI you copied.
 
-## 6. Create Lambda Function
+For Compatible Runtimes, select Python 3.10.
 
-Name: pandas-api-docker
+Click Create.
 
-Runtime: Python 3.10
+## Creating the Lambda Function
 
-## 7. Attach the Layer to the Function
+Now let's connect everything.
 
-Lambda → Configuration → Layers → Add layer
-Choose: Custom Layers → pandas-layer-docker
+Go to the Lambda dashboard and click Create Function. Name it pandas-api-docker. Choose Python 3.10 as the Runtime and x86_64 as the Architecture. Click Create function.
 
-## 8. Lambda Function Code 
+Attach the Pandas Layer:
+
+In your new function, scroll down to the Layers section.
+
+Click Add a layer.
+
+Select Custom layers, choose pandas-layer-docker, and pick Version 1.
+
+Click Add.
+
+## Adding the Code
+Now that Pandas is attached, let's write the logic. Scroll down to the Code Source editor, delete everything, and paste this:
+
 
 import json
 import pandas as pd
@@ -123,16 +140,15 @@ def lambda_handler(event, context):
             })
         }
 
-## 9. Create API Endpoint (Function URL)
+Click Deploy to save it.
 
-Enable Function URL:
+## The Final Step: Making it Public
 
-Auth: NONE (public)
+To share this with the world, we need a public link.
 
-Copy the generated URL
-Example:
+In your function, go to the Configuration tab and select Function URL from the left menu. Click Create function URL, set the Auth type to NONE (public), and save it.
 
-https://xxxxxx.lambda-url.ap-south-1.on.aws/
+You now have a live URL
 
 ## Output Examples
 
