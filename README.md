@@ -103,9 +103,8 @@ Click Add.
 ## Adding the Code
 Now that Pandas is attached, let's write the logic. Scroll down to the Code Source editor, delete everything, and paste this:
 
-
+```python
 import json
-
 import pandas as pd
 
 def lambda_handler(event, context):
@@ -143,6 +142,7 @@ def lambda_handler(event, context):
                 "error": str(e)
             })
         }
+```        
 
 Click Deploy to save it.
 
