@@ -37,6 +37,7 @@ cd Desktop\lambda-pandas-docker
 Step 1: Define What We Need We need to tell Docker exactly which libraries to install. Run these commands in PowerShell to create a list:
 
 echo "pandas==2.3.3" > requirements.txt
+
 echo "numpy==2.2.6" >> requirements.txt
 
 Step 2: Start the Builder Now, we fire up a temporary Linux machine inside your computer. Run this exact command:
@@ -48,7 +49,9 @@ You are now "inside" the Linux machine! Your command prompt will change to look 
 Step 3: Build and Zip Inside that new prompt, run these commands to install Pandas and zip it up:
 
 pip install -r requirements.txt -t python
+
 zip -r pandas-layer-docker.zip python
+
 exit
 
 You are now back in Windows, and you have a new file named pandas-layer-docker.zip in your folder. This is your "Layer".
@@ -102,6 +105,7 @@ Now that Pandas is attached, let's write the logic. Scroll down to the Code Sour
 
 
 import json
+
 import pandas as pd
 
 def lambda_handler(event, context):
